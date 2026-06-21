@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useState } from 'react'
 import type { Square, Color } from 'chess.js'
 import ChessScene from './components/ChessScene'
 import Sidebar from './components/Sidebar'
@@ -13,6 +13,7 @@ export default function App() {
   const { orientation, isFlipping, flip } = useCameraFlip()
   const { requestMove } = useStockfish()
   const botThinking = useRef(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const handleSquareClick = useCallback(
     (square: Square) => {
@@ -100,6 +101,8 @@ export default function App() {
         humanColor={humanColor}
         onNewGame={handleNewGame}
         onUndo={undoMove}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(c => !c)}
       />
     </div>
   )

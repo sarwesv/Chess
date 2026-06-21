@@ -12,11 +12,13 @@ interface SidebarProps {
   humanColor: Color
   onNewGame: () => void
   onUndo: () => void
+  collapsed: boolean
+  onToggleCollapse: () => void
 }
 
 const COLOR_LABEL: Record<Color, string> = { w: 'White', b: 'Black' }
 
-export default function Sidebar({ gameState, mode, difficulty, orientation, humanColor, onNewGame, onUndo }: SidebarProps) {
+export default function Sidebar({ gameState, mode, difficulty, orientation, humanColor, onNewGame, onUndo, collapsed, onToggleCollapse }: SidebarProps) {
   const { turn, isCheck, isCheckmate, isDraw, capturedByWhite, capturedByBlack, moveHistory } = gameState
 
   const statusText = (() => {
@@ -39,7 +41,16 @@ export default function Sidebar({ gameState, mode, difficulty, orientation, huma
   }
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}>
+      <button
+        className="sidebar-toggle"
+        onClick={onToggleCollapse}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      >
+        {collapsed ? '‹' : '›'}
+      </button>
+
+      {!collapsed && <>
       <div className="sidebar-header">
         <div className="chess-crown">♛</div>
         <h1 className="sidebar-title">Chess</h1>
@@ -81,6 +92,7 @@ export default function Sidebar({ gameState, mode, difficulty, orientation, huma
           <button className="btn-vintage btn-secondary" onClick={onUndo}>Undo</button>
         )}
       </div>
+      </>}
     </aside>
   )
 }
