@@ -99,7 +99,7 @@ export default function ChessScene({ gameState, orientation, isFlipping: _, onSq
               key={square}
               type={type}
               color={color}
-              position={[pos[0], 0.02, pos[2]]}
+              position={[pos[0], 0.04, pos[2]]}
               isSelected={gameState.selectedSquare === square}
               isLastMove={gameState.lastMove?.from === square || gameState.lastMove?.to === square}
               onClick={() => onSquareClick(square)}

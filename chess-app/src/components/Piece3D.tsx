@@ -21,7 +21,7 @@ interface Piece3DProps {
   onClick: () => void
 }
 
-const SCALE = 0.38
+const SCALE = 0.62
 
 const lightWoodColor = new THREE.Color('#c8a97e')
 const darkWoodColor = new THREE.Color('#3d1f0a')
