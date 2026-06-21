@@ -13,7 +13,7 @@ export default function App() {
   const { orientation, isFlipping, flip } = useCameraFlip()
   const { requestMove } = useStockfish()
   const botThinking = useRef(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth < 768)
 
   const handleSquareClick = useCallback(
     (square: Square) => {
