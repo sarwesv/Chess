@@ -26,7 +26,7 @@ export function useStockfish(): StockfishHook {
 
   useEffect(() => {
     // Load stockfish from the public directory as a classic Worker
-    const worker = new Worker('/stockfish.js')
+    const worker = new Worker(`${import.meta.env.BASE_URL}stockfish.js`)
     workerRef.current = worker
 
     worker.onmessage = (e: MessageEvent<string>) => {
