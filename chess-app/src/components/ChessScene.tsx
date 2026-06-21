@@ -57,7 +57,7 @@ export default function ChessScene({ gameState, orientation, isFlipping: _, onSq
       style={{ width: '100%', height: '100%' }}
       gl={{ antialias: true, toneMapping: 2 /* ACESFilmicToneMapping */ }}
     >
-      <CameraRig orientation={orientation} isFlipping={false} />
+      <CameraRig orientation={orientation} />
 
       {/* Lighting — warm candlelight feel */}
       <ambientLight intensity={0.35} color="#ffe8c0" />
