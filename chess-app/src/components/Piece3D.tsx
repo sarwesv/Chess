@@ -1,7 +1,8 @@
-import { useRef, useMemo } from 'react'
+import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { PieceSymbol, Color } from 'chess.js'
+import type { Orientation } from '../hooks/useCameraFlip'
 import {
   PAWN_PROFILE,
   ROOK_PROFILE,
@@ -11,51 +12,84 @@ import {
   KING_PROFILE,
   buildLatheGeometry,
 } from '../geometry/pieceProfiles'
+import { useMemo } from 'react'
 
 interface Piece3DProps {
   type: PieceSymbol
   color: Color
   position: [number, number, number]
+  orientation: Orientation
   isSelected: boolean
   isLastMove: boolean
   onClick: () => void
 }
 
 const SCALE = 0.62
+const MOVE_SPEED = 9   // lerp factor — higher = snappier
+const ARC_SCALE = 0.45 // how high pieces arc relative to horizontal distance remaining
 
 const lightWoodColor = new THREE.Color('#c8a97e')
-const darkWoodColor = new THREE.Color('#3d1f0a')
-const lightWoodRough = 0.6
-const darkWoodRough = 0.5
+const darkWoodColor  = new THREE.Color('#3d1f0a')
 
-export default function Piece3D({ type, color, position, isSelected, isLastMove, onClick }: Piece3DProps) {
-  const groupRef = useRef<THREE.Group>(null)
-  const targetY = useRef(position[1])
-  const currentY = useRef(position[1])
+export default function Piece3D({ type, color, position, orientation, isSelected, isLastMove, onClick }: Piece3DProps) {
+  const groupRef       = useRef<THREE.Group>(null)
+  const currentPos     = useRef(new THREE.Vector3(position[0], position[1], position[2]))
+  const targetPos      = useRef(new THREE.Vector3(position[0], position[1], position[2]))
+  const prevOrient     = useRef<Orientation>(orientation)
 
-  // Animate hover when selected
   useFrame((_, delta) => {
     if (!groupRef.current) return
-    const hoverTarget = isSelected ? position[1] + 0.15 : position[1]
-    targetY.current = hoverTarget
-    currentY.current += (targetY.current - currentY.current) * Math.min(delta * 8, 1)
-    groupRef.current.position.y = currentY.current
+
+    // Update target to latest prop values
+    targetPos.current.set(position[0], position[1], position[2])
+
+    // When orientation flips, snap instead of animate so pieces don't
+    // visually fly across the board during the camera rotation.
+    if (orientation !== prevOrient.current) {
+      prevOrient.current = orientation
+      currentPos.current.copy(targetPos.current)
+    }
+
+    const speed = Math.min(delta * MOVE_SPEED, 1)
+
+    // Lerp X and Z (horizontal slide)
+    currentPos.current.x += (targetPos.current.x - currentPos.current.x) * speed
+    currentPos.current.z += (targetPos.current.z - currentPos.current.z) * speed
+    // Lerp base Y (board height)
+    currentPos.current.y += (targetPos.current.y - currentPos.current.y) * speed
+
+    // Arc: lift proportional to remaining horizontal distance
+    const dx    = targetPos.current.x - currentPos.current.x
+    const dz    = targetPos.current.z - currentPos.current.z
+    const hDist = Math.sqrt(dx * dx + dz * dz)
+    const arcY  = hDist * ARC_SCALE
+
+    // Hover lift when selected
+    const hoverY = isSelected ? 0.18 : 0
+
+    groupRef.current.position.set(
+      currentPos.current.x,
+      currentPos.current.y + arcY + hoverY,
+      currentPos.current.z,
+    )
   })
 
   const pieceColor = color === 'w' ? lightWoodColor : darkWoodColor
-  const roughness = color === 'w' ? lightWoodRough : darkWoodRough
+  const roughness  = color === 'w' ? 0.6 : 0.5
 
   return (
     <group
       ref={groupRef}
-      position={[position[0], position[1], position[2]]}
-      onClick={(e) => {
-        e.stopPropagation()
-        onClick()
-      }}
       scale={SCALE}
+      onClick={(e) => { e.stopPropagation(); onClick() }}
     >
-      <PieceGeometry type={type} pieceColor={pieceColor} roughness={roughness} isSelected={isSelected} isLastMove={isLastMove} />
+      <PieceGeometry
+        type={type}
+        pieceColor={pieceColor}
+        roughness={roughness}
+        isSelected={isSelected}
+        isLastMove={isLastMove}
+      />
     </group>
   )
 }
@@ -69,39 +103,30 @@ interface PieceGeometryProps {
 }
 
 function PieceGeometry({ type, pieceColor, roughness, isSelected, isLastMove }: PieceGeometryProps) {
-  const emissiveColor = isSelected
+  const emissive = isSelected
     ? new THREE.Color('#d4a017').multiplyScalar(0.3)
     : isLastMove
     ? new THREE.Color('#8b6914').multiplyScalar(0.15)
     : new THREE.Color(0, 0, 0)
 
   const mat = (
-    <meshStandardMaterial
-      color={pieceColor}
-      roughness={roughness}
-      metalness={0.05}
-      emissive={emissiveColor}
-    />
+    <meshStandardMaterial color={pieceColor} roughness={roughness} metalness={0.05} emissive={emissive} />
   )
 
   switch (type) {
-    case 'p': return <Lathepiece profile={PAWN_PROFILE}>{mat}</Lathepiece>
-    case 'r': return <Lathepiece profile={ROOK_PROFILE}>{mat}</Lathepiece>
-    case 'b': return <Lathepiece profile={BISHOP_PROFILE}>{mat}</Lathepiece>
-    case 'q': return <Lathepiece profile={QUEEN_PROFILE}>{mat}</Lathepiece>
+    case 'p': return <LatheP profile={PAWN_PROFILE}>{mat}</LatheP>
+    case 'r': return <LatheP profile={ROOK_PROFILE}>{mat}</LatheP>
+    case 'b': return <LatheP profile={BISHOP_PROFILE}>{mat}</LatheP>
+    case 'q': return <LatheP profile={QUEEN_PROFILE}>{mat}</LatheP>
     case 'k': return <KingMesh>{mat}</KingMesh>
-    case 'n': return <KnightMesh pieceColor={pieceColor} roughness={roughness} emissiveColor={emissiveColor} />
-    default: return null
+    case 'n': return <KnightMesh pieceColor={pieceColor} roughness={roughness} emissive={emissive} />
+    default:  return null
   }
 }
 
-function Lathepiece({ profile, children }: { profile: [number, number][]; children: React.ReactNode }) {
+function LatheP({ profile, children }: { profile: [number, number][]; children: React.ReactNode }) {
   const geo = useMemo(() => buildLatheGeometry(profile), [profile])
-  return (
-    <mesh geometry={geo} castShadow receiveShadow>
-      {children}
-    </mesh>
-  )
+  return <mesh geometry={geo} castShadow receiveShadow>{children}</mesh>
 }
 
 function KingMesh({ children }: { children: React.ReactNode }) {
@@ -109,51 +134,30 @@ function KingMesh({ children }: { children: React.ReactNode }) {
   return (
     <group>
       <mesh geometry={bodyGeo} castShadow receiveShadow>{children}</mesh>
-      {/* Cross horizontal bar */}
       <mesh position={[0, 1.30, 0]} castShadow>
-        <boxGeometry args={[0.28, 0.07, 0.07]} />
-        {children}
+        <boxGeometry args={[0.28, 0.07, 0.07]} />{children}
       </mesh>
-      {/* Cross vertical bar */}
       <mesh position={[0, 1.36, 0]} castShadow>
-        <boxGeometry args={[0.07, 0.18, 0.07]} />
-        {children}
+        <boxGeometry args={[0.07, 0.18, 0.07]} />{children}
       </mesh>
     </group>
   )
 }
 
-function KnightMesh({
-  pieceColor,
-  roughness,
-  emissiveColor,
-}: {
-  pieceColor: THREE.Color
-  roughness: number
-  emissiveColor: THREE.Color
-}) {
+function KnightMesh({ pieceColor, roughness, emissive }: { pieceColor: THREE.Color; roughness: number; emissive: THREE.Color }) {
   const bodyGeo = useMemo(() => buildLatheGeometry(KNIGHT_PROFILE), [])
-  const mat = (
-    <meshStandardMaterial color={pieceColor} roughness={roughness} metalness={0.05} emissive={emissiveColor} />
-  )
+  const mat = <meshStandardMaterial color={pieceColor} roughness={roughness} metalness={0.05} emissive={emissive} />
   return (
     <group>
-      {/* Base */}
       <mesh geometry={bodyGeo} castShadow receiveShadow>{mat}</mesh>
-      {/* Neck */}
       <mesh position={[0.04, 0.58, 0]} rotation={[0.3, 0, -0.15]} castShadow>
-        <cylinderGeometry args={[0.12, 0.18, 0.32, 12]} />
-        {mat}
+        <cylinderGeometry args={[0.12, 0.18, 0.32, 12]} />{mat}
       </mesh>
-      {/* Head */}
       <mesh position={[0.06, 0.82, 0]} rotation={[0.5, 0, -0.1]} castShadow>
-        <boxGeometry args={[0.22, 0.20, 0.16]} />
-        {mat}
+        <boxGeometry args={[0.22, 0.20, 0.16]} />{mat}
       </mesh>
-      {/* Snout */}
       <mesh position={[0.18, 0.76, 0]} rotation={[0.2, 0, 0.1]} castShadow>
-        <boxGeometry args={[0.14, 0.10, 0.12]} />
-        {mat}
+        <boxGeometry args={[0.14, 0.10, 0.12]} />{mat}
       </mesh>
     </group>
   )
